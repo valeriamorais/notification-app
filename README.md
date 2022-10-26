@@ -1,127 +1,103 @@
-# notification-app
 
-This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
+## Description
+###API Gateway, Lambda to EventBridge to Lambda
 
-- SubscriptionFunction/src/main - Code for the application's Lambda function.
-- events - Invocation events that you can use to invoke the function.
-- SubscriptionFunction/src/test - Unit tests for the application code. 
-- template.yaml - A template that defines the application's AWS resources.
+This pattern creates an Amazon API Gateway HTTP API, a AWS Lambda function(publisher), a custom EventBridge and Event Rule and another Lambda function(subscriber) using SAM and Java 11.
 
-The application uses several AWS resources, including Lambda functions and an API Gateway API. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
+This example is an implementation of an publisher/subscriber pattern in Event-Drivent Architecture.
 
-If you prefer to use an integrated development environment (IDE) to build and test your application, you can use the AWS Toolkit.  
-The AWS Toolkit is an open source plug-in for popular IDEs that uses the SAM CLI to build and deploy serverless applications on AWS. The AWS Toolkit also adds a simplified step-through debugging experience for Lambda function code. See the following links to get started.
+Important: this application uses various AWS services and there are costs associated with these services after the Free Tier usage - please see the AWS Pricing page for details. You are responsible for any AWS costs incurred.
 
-* [CLion](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [GoLand](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [IntelliJ](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [WebStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [Rider](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PhpStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PyCharm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [RubyMine](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [DataGrip](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [VS Code](https://docs.aws.amazon.com/toolkit-for-vscode/latest/userguide/welcome.html)
-* [Visual Studio](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/welcome.html)
 
-## Deploy the sample application
+## Language:
+###This is a Maven project which uses Java 11 and AWS SDK
 
-The Serverless Application Model Command Line Interface (SAM CLI) is an extension of the AWS CLI that adds functionality for building and testing Lambda applications. It uses Docker to run your functions in an Amazon Linux environment that matches Lambda. It can also emulate your application's build environment and API.
+## Framework
 
-To use the SAM CLI, you need the following tools.
+The framework used to deploy the infrastructure is SAM
 
-* SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-* Java11 - [Install the Java 11](https://docs.aws.amazon.com/corretto/latest/corretto-11-ug/downloads-list.html)
-* Maven - [Install Maven](https://maven.apache.org/install.html)
-* Docker - [Install Docker community edition](https://hub.docker.com/search/?type=edition&offering=community)
+## Services used
 
-To build and deploy your application for the first time, run the following in your shell:
+The AWS services used in this pattern are
+### API Gateway - AWS Lambda - EventBridge - AWS Lambda
 
-```bash
-sam build
-sam deploy --guided
+Topology
+
+<img src="topologia-desafio-mercado-livre-2022.png" alt="topology" width="100%"/>
+
+
+## Description
+The SAM template contains all the information to deploy AWS resources(an API Gateway, two Lambda functions, a custom EventBridge and a custom EventBridge Rule) and also the permission required by these service to communicate.
+
+You will be able to create and delete the CloudFormation stack using the CLI commands.
+
+After the stack is created you can send an JSON object using curl or Postman to the URL provided by the API Gateway,
+the request will be intercepted by the Lambda function which will publish an event to the EventBridge. The event Rule will
+send the event with the payload to the second lamnda function, the subscriber.
+
+You can see the event received by the subscriber Lambda function in the CloudWatch Logs of the function.
+
+
+## Deployment commands
+
+````
+mvn clean package
+
+
+# create an S3 bucket where the source code will be stored:
+
+aws s3 mb s3://ndis2dc92jd2s
+
+
+# copy the source code located in the target folder:
+
+aws s3 cp target/ticketPubSub.zip s3://ndis2dc92jd2s
+
+
+# SAM will deploy the CloudFormation stack described in the template.yml file:
+
+sam deploy --s3-bucket ndis2dc92jd2s --stack-name ticket-stack --capabilities CAPABILITY_IAM
+
+
+# REMEMBER to DELETE the CloudFormation stack
+
+aws cloudformation delete-stack --stack-name ticket-stack
+
+````
+
+## Testing
+
+You can test the implementation using Postman and in the Body pasting the content of the ticket-example.json file:
+
+````
+{
+  "data":{
+    "userId":"338dnwu2sjw",
+    "issue":"My system is running too slowly"
+  },
+  "medatada":{
+    "correlationId":"38is22ssd"
+  }
+}
+````
+
+Or using curl which will return the event id generated by EventBridge
+
 ```
-
-The first command will build the source of your application. The second command will package and deploy your application to AWS, with a series of prompts:
-
-* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region, and a good starting point would be something matching your project name.
-* **AWS Region**: The AWS region you want to deploy your app to.
-* **Confirm changes before deploy**: If set to yes, any change sets will be shown to you before execution for manual review. If set to no, the AWS SAM CLI will automatically deploy application changes.
-* **Allow SAM CLI IAM role creation**: Many AWS SAM templates, including this example, create AWS IAM roles required for the AWS Lambda function(s) included to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modifies IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
-* **Save arguments to samconfig.toml**: If set to yes, your choices will be saved to a configuration file inside the project, so that in the future you can just re-run `sam deploy` without parameters to deploy changes to your application.
-
-You can find your API Gateway Endpoint URL in the output values displayed after deployment.
-
-## Use the SAM CLI to build and test locally
-
-Build your application with the `sam build` command.
-
-```bash
-notification-app$ sam build
-```
-
-The SAM CLI installs dependencies defined in `SubscriptionFunction/pom.xml`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
-
-Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
-
-Run functions locally and invoke them with the `sam local invoke` command.
-
-```bash
-notification-app$ sam local invoke SubscriptionFunction --event events/event.json
-```
-
-The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
-
-```bash
-notification-app$ sam local start-api
-notification-app$ curl http://localhost:3000/
-```
-
-The SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
-
-```yaml
-      Events:
-        HelloWorld:
-          Type: Api
-          Properties:
-            Path: /hello
-            Method: get
-```
-
-## Add a resource to your application
-The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
-
-## Fetch, tail, and filter Lambda function logs
-
-To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs` lets you fetch logs generated by your deployed Lambda function from the command line. In addition to printing the logs on the terminal, this command has several nifty features to help you quickly find the bug.
-
-`NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
-
-```bash
-notification-app$ sam logs -n SubscriptionFunction --stack-name notification-app --tail
-```
-
-You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
-
-## Unit tests
-
-Tests are defined in the `SubscriptionFunction/src/test` folder in this project.
-
-```bash
-notification-app$ cd SubscriptionFunction
-SubscriptionFunction$ mvn test
+curl -X POST https://COPYfromAPIGateway/dev/ticket -H "Content-Type: application/json" -d '{"data":{"userId":"338dnwu2sjw","issue":"My system is running too slowly"},"medatada":{"correlationId":"38is22ssd"}}' 
 ```
 
 ## Cleanup
 
-To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
-
-```bash
-aws cloudformation delete-stack --stack-name notification-app
+Run the given command to delete the resources that were created. It might take some time for the CloudFormation stack to get deleted.
+```
+aws cloudformation delete-stack --stack-name ticket-stack
 ```
 
-## Resources
+## Requirements
 
-See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
+* [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) if you do not already have one and log in. The IAM user that you use must have sufficient permissions to make necessary AWS service calls and manage AWS resources.
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) installed and configured
+* [Git Installed](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [AWS Serverless Application Model](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (AWS SAM) installed
 
-Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)
