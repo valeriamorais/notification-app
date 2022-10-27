@@ -122,5 +122,6 @@ aws cloudformation delete-stack --stack-name ticket-stack
 
 ## Mais informações
 
-* [Swager - NotificationAPI](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
-* [Status atividade concluída](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
+* [Documentação API](OAS30_notification-api.yaml)
+* [Status atividade concluída](STATUS.md)
+
