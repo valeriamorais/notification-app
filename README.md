@@ -15,9 +15,18 @@ Este projeto está utilizando Maven com Java 11 e AWS SDK
 
 O framework usado para o deploy da infraestrutura é o SAM (AWS Serverless Application Model)
 
-## 1 - Subscribe/Unsubscribe
+## Autenticação e Autorização
 
 A solução como um todo utiliza o Cognito para realizar a autenticação e autorização.
+
+Criado via console AWS pode ser acessado nessa URL:
+
+[Cognito](https://subscribe-notification.auth.sa-east-1.amazoncognito.com/login?client_id=1vsj79f1q18fsjijuajdlavlgn&response_type=token&scope=aws.cognito.signin.user.admin+email+openid+phone+profile&redirect_uri=https://m8s2uxdx8g.execute-api.sa-east-1.amazonaws.com/api-subscribe-notification)
+
+Só é possível acessar as rotas da API utilizando o token gerado pelo Cognito.
+
+
+## 1 - Subscribe/Unsubscribe
 
 Essa primeira parte ficou responsável pela funcionalidade de opt-in e opt-out das notificações.
 
