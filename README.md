@@ -1,127 +1,126 @@
-# notification-app
+## Desenvolvimento da Solução
+Para esse desafio pensei no modelo Publisher/Subscriber de arquitetura orientada a eventos. 
 
-This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
+Baseado nos requisitos informados (funcionais e não funcionais), entendi que poderia propor uma solução utilizando AWS Serveless.
 
-- SubscriptionFunction/src/main - Code for the application's Lambda function.
-- events - Invocation events that you can use to invoke the function.
-- SubscriptionFunction/src/test - Unit tests for the application code. 
-- template.yaml - A template that defines the application's AWS resources.
+Dividi a implementação em 3 partes:
+1. Subscribe/Unsubscribe
+2. Publish
+3. Notification
 
-The application uses several AWS resources, including Lambda functions and an API Gateway API. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
+## Linguagem:
+Este projeto está utilizando Maven com Java 11 e AWS SDK
 
-If you prefer to use an integrated development environment (IDE) to build and test your application, you can use the AWS Toolkit.  
-The AWS Toolkit is an open source plug-in for popular IDEs that uses the SAM CLI to build and deploy serverless applications on AWS. The AWS Toolkit also adds a simplified step-through debugging experience for Lambda function code. See the following links to get started.
+## Framework
 
-* [CLion](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [GoLand](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [IntelliJ](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [WebStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [Rider](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PhpStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PyCharm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [RubyMine](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [DataGrip](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [VS Code](https://docs.aws.amazon.com/toolkit-for-vscode/latest/userguide/welcome.html)
-* [Visual Studio](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/welcome.html)
+O framework usado para o deploy da infraestrutura é o SAM (AWS Serverless Application Model)
 
-## Deploy the sample application
+## 1 - Subscribe/Unsubscribe
 
-The Serverless Application Model Command Line Interface (SAM CLI) is an extension of the AWS CLI that adds functionality for building and testing Lambda applications. It uses Docker to run your functions in an Amazon Linux environment that matches Lambda. It can also emulate your application's build environment and API.
+A solução como um todo utiliza o Cognito para realizar a autenticação e autorização.
 
-To use the SAM CLI, you need the following tools.
+Essa primeira parte ficou responsável pela funcionalidade de opt-in e opt-out das notificações.
 
-* SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-* Java11 - [Install the Java 11](https://docs.aws.amazon.com/corretto/latest/corretto-11-ug/downloads-list.html)
-* Maven - [Install Maven](https://maven.apache.org/install.html)
-* Docker - [Install Docker community edition](https://hub.docker.com/search/?type=edition&offering=community)
+A Lambda responsável irá fazer as chamadas dos métodos da biblioteca AWS SDK de Subscribe e Unsubscribe de acordo com os dados fornecidos na chamada do API Gateway.
 
-To build and deploy your application for the first time, run the following in your shell:
+Para esta implementação serão criados 2 tópicos SNS:
+- ofertas e descontos (notificação geral)
+- avisos (notificação com filtro para os casos que a mensagem seja específica)
 
-```bash
-sam build
-sam deploy --guided
-```
+A fila SQS será criada e vinculada ao tópico do SNS a ser utilizada como destino para mensagens que não podem ser processada com sucesso. (Dead letter queue - DLQ)
 
-The first command will build the source of your application. The second command will package and deploy your application to AWS, with a series of prompts:
+## Serviços AWS utilizados
 
-* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region, and a good starting point would be something matching your project name.
-* **AWS Region**: The AWS region you want to deploy your app to.
-* **Confirm changes before deploy**: If set to yes, any change sets will be shown to you before execution for manual review. If set to no, the AWS SAM CLI will automatically deploy application changes.
-* **Allow SAM CLI IAM role creation**: Many AWS SAM templates, including this example, create AWS IAM roles required for the AWS Lambda function(s) included to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modifies IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
-* **Save arguments to samconfig.toml**: If set to yes, your choices will be saved to a configuration file inside the project, so that in the future you can just re-run `sam deploy` without parameters to deploy changes to your application.
+Cognito, API Gateway, Lambda para opt-in/opt-out dos Tópicos SNS com SQS DLQ
 
-You can find your API Gateway Endpoint URL in the output values displayed after deployment.
+## Topologia - Subscribe Notification
 
-## Use the SAM CLI to build and test locally
+<img src="topologia-desafio-mercado-livre-2022-01.png" alt="topology" width="100%"/>
 
-Build your application with the `sam build` command.
+## 2 - Publish
 
-```bash
-notification-app$ sam build
-```
+Nesse caso, a lambda ScheduleNotification será responsável a criar o Evento/Rule de agendamento da publicação. 
 
-The SAM CLI installs dependencies defined in `SubscriptionFunction/pom.xml`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
+A lambda ProduceNotification é a responsável pela publicação das mensagens.
 
-Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
+## Serviços AWS utilizados
 
-Run functions locally and invoke them with the `sam local invoke` command.
+Cognito, API Gateway, Lambda para agendamento com EventBrigde/Rule, Lambda para publicação nos Tópicos SNS com SQS DLQ
 
-```bash
-notification-app$ sam local invoke SubscriptionFunction --event events/event.json
-```
+## Topologia - Publish Notification
 
-The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
+<img src="topologia-desafio-mercado-livre-2022-02.png" alt="topology" width="100%"/>
 
-```bash
-notification-app$ sam local start-api
-notification-app$ curl http://localhost:3000/
-```
+## 3 - Notification
 
-The SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
+A última parte da implementação será responsável pela entrega da notificação.
 
-```yaml
-      Events:
-        HelloWorld:
-          Type: Api
-          Properties:
-            Path: /hello
-            Method: get
-```
+## Serviços AWS utilizados
 
-## Add a resource to your application
-The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
+Cognito, API Gateway, Lambda para consulta SNS Topic com SQS DLQ
 
-## Fetch, tail, and filter Lambda function logs
+## Topologia - Receive Notification
 
-To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs` lets you fetch logs generated by your deployed Lambda function from the command line. In addition to printing the logs on the terminal, this command has several nifty features to help you quickly find the bug.
+<img src="topologia-desafio-mercado-livre-2022-03.png" alt="topology" width="100%"/>
 
-`NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
+## Instalação do Localstack 
+Localstack é um emulador de serviços cloud (AWS) que roda em um único container. 
+Nesse caso, com o localstack já instalado, utilizei ele com o Docker, com os comandos:
 
-```bash
-notification-app$ sam logs -n SubscriptionFunction --stack-name notification-app --tail
-```
+````
+pip install --user localstack
+````
 
-You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
+````
+TMPDIR=/private$TMPDIR localstack start --docker
+````
 
-## Unit tests
+<img src="docker-localstack.png" alt="docker-localstack" width="100%"/>
 
-Tests are defined in the `SubscriptionFunction/src/test` folder in this project.
+## Deployment commands [DRAFT]
 
-```bash
-notification-app$ cd SubscriptionFunction
-SubscriptionFunction$ mvn test
-```
+````
+mvn clean package
+
+# create an S3 bucket where the source code will be stored:
+
+aws s3 mb s3://ndis2dc92jd2s
+
+
+# copy the source code located in the target folder:
+
+aws s3 cp target/notification-app.zip s3://ndis2dc92jd2s
+
+
+# SAM will deploy the CloudFormation stack described in the template.yml file:
+
+sam deploy --s3-bucket ndis2dc92jd2s --stack-name notification-stack --capabilities CAPABILITY_IAM
+
+````
+
+## Teste
+
+Work in Progress.
+
 
 ## Cleanup
 
-To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
-
-```bash
-aws cloudformation delete-stack --stack-name notification-app
+Para deletar os recursos criados:
+```
+aws cloudformation delete-stack --stack-name ticket-stack
 ```
 
-## Resources
+## Requisitos
 
-See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
+* [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) 
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) 
+* [Git Installed](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [AWS Serverless Application Model](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) 
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+* [Localstack](https://github.com/localstack/localstack)
 
-Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)
+
+## Mais informações
+
+* [Swager - NotificationAPI](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
+* [Status atividade concluída](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
