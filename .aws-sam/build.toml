@@ -9,5 +9,4 @@ handler = "service.lambda.subscribe.HandleSubscribeFunction::handleRequest"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["NotificationFunctions"]
-
 [layer_build_definitions]
