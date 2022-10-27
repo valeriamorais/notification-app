@@ -1,0 +1,69 @@
+openapi: "3.0.1"
+info:
+  title: "api-notification"
+  version: "2022-10-24 10:37:15UTC"
+servers:
+- url: "https://m8s2uxdx8g.execute-api.sa-east-1.amazonaws.com/{basePath}"
+  variables:
+    basePath:
+      default: ""
+paths:
+  /notification:
+    get:
+      responses:
+        default:
+          description: "Default response for GET /notification"
+      security:
+      - cognito-auth: []
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "arn:aws:apigateway:sa-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:sa-east-1:116690863826:function:api-lambda-sns-notification/invocations"
+        connectionType: "INTERNET"
+  /publish-notification:
+    post:
+      responses:
+        default:
+          description: "Default response for POST /publish-notification"
+      security:
+      - cognito-auth: []
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "arn:aws:apigateway:sa-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:sa-east-1:116690863826:function:api-lambda-sns-schedule-publisher/invocations"
+        connectionType: "INTERNET"
+  /subscribe-notification:
+    post:
+      responses:
+        default:
+          description: "Default response for POST /subscribe-notification"
+      security:
+      - cognito-auth: []
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "2.0"
+        type: "aws_proxy"
+        httpMethod: "POST"
+        uri: "arn:aws:apigateway:sa-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:sa-east-1:116690863826:function:api-lambda-sns-subscriber/invocations"
+        connectionType: "INTERNET"
+components:
+  securitySchemes:
+    cognito-auth:
+      type: "oauth2"
+      flows: {}
+      x-amazon-apigateway-authorizer:
+        identitySource: "$request.header.Authorization"
+        jwtConfiguration:
+          audience:
+          - "1vsj79f1q18fsjijuajdlavlgn"
+          issuer: "https://cognito-idp.sa-east-1.amazonaws.com/sa-east-1_kwq2cMd4h"
+        type: "jwt"
+  x-amazon-apigateway-integrations:
+    unusedIntegration_mwe0oq3:
+      payloadFormatVersion: "2.0"
+      type: "aws_proxy"
+      httpMethod: "POST"
+      uri: "arn:aws:apigateway:sa-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:sa-east-1:116690863826:function:serverlessrepo-api-lambda-sns-publisher/invocations"
+      connectionType: "INTERNET"
+x-amazon-apigateway-importexport-version: "1.0"

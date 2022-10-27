@@ -1,48 +1,86 @@
+## Desenvolvimento da Solução
+Para esse desafio pensei no modelo Publisher/Subscriber de arquitetura orientada a eventos. 
 
-## Description
-###API Gateway, Lambda to EventBridge to Lambda
+Baseado nos requisitos informados (funcionais e não funcionais), entendi que poderia propor uma solução utilizando AWS Serveless.
 
-This pattern creates an Amazon API Gateway HTTP API, a AWS Lambda function(publisher), a custom EventBridge and Event Rule and another Lambda function(subscriber) using SAM and Java 11.
+Dividi a implementação em 3 partes:
+1. Subscribe/Unsubscribe
+2. Publish
+3. Notification
 
-This example is an implementation of an publisher/subscriber pattern in Event-Drivent Architecture.
-
-Important: this application uses various AWS services and there are costs associated with these services after the Free Tier usage - please see the AWS Pricing page for details. You are responsible for any AWS costs incurred.
-
-
-## Language:
-###This is a Maven project which uses Java 11 and AWS SDK
+## Linguagem:
+Este projeto está utilizando Maven com Java 11 e AWS SDK
 
 ## Framework
 
-The framework used to deploy the infrastructure is SAM
+O framework usado para o deploy da infraestrutura é o SAM (AWS Serverless Application Model)
 
-## Services used
+## 1 - Subscribe/Unsubscribe
 
-The AWS services used in this pattern are
-### API Gateway - AWS Lambda - EventBridge - AWS Lambda
+A solução como um todo utiliza o Cognito para realizar a autenticação e autorização.
 
-Topology
+Essa primeira parte ficou responsável pela funcionalidade de opt-in e opt-out das notificações.
 
-<img src="topologia-desafio-mercado-livre-2022.png" alt="topology" width="100%"/>
+A Lambda responsável irá fazer as chamadas dos métodos da biblioteca AWS SDK de Subscribe e Unsubscribe de acordo com os dados fornecidos na chamada do API Gateway.
 
+Para esta implementação serão criados 2 tópicos SNS:
+- ofertas e descontos (notificação geral)
+- avisos (notificação com filtro para os casos que a mensagem seja específica)
 
-## Description
-The SAM template contains all the information to deploy AWS resources(an API Gateway, two Lambda functions, a custom EventBridge and a custom EventBridge Rule) and also the permission required by these service to communicate.
+A fila SQS será criada e vinculada ao tópico do SNS a ser utilizada como destino para mensagens que não podem ser processada com sucesso. (Dead letter queue - DLQ)
 
-You will be able to create and delete the CloudFormation stack using the CLI commands.
+## Serviços AWS utilizados
 
-After the stack is created you can send an JSON object using curl or Postman to the URL provided by the API Gateway,
-the request will be intercepted by the Lambda function which will publish an event to the EventBridge. The event Rule will
-send the event with the payload to the second lamnda function, the subscriber.
+Cognito, API Gateway, Lambda para opt-in/opt-out dos Tópicos SNS com SQS DLQ
 
-You can see the event received by the subscriber Lambda function in the CloudWatch Logs of the function.
+## Topologia - Subscribe Notification
 
+<img src="topologia-desafio-mercado-livre-2022-01.png" alt="topology" width="100%"/>
 
-## Deployment commands
+## 2 - Publish
+
+Nesse caso, a lambda ScheduleNotification será responsável a criar o Evento/Rule de agendamento da publicação. 
+
+A lambda ProduceNotification é a responsável pela publicação das mensagens.
+
+## Serviços AWS utilizados
+
+Cognito, API Gateway, Lambda para agendamento com EventBrigde/Rule, Lambda para publicação nos Tópicos SNS com SQS DLQ
+
+## Topologia - Publish Notification
+
+<img src="topologia-desafio-mercado-livre-2022-02.png" alt="topology" width="100%"/>
+
+## 3 - Notification
+
+A última parte da implementação será responsável pela entrega da notificação.
+
+## Serviços AWS utilizados
+
+Cognito, API Gateway, Lambda para consulta SNS Topic com SQS DLQ
+
+## Topologia - Receive Notification
+
+<img src="topologia-desafio-mercado-livre-2022-03.png" alt="topology" width="100%"/>
+
+## Instalação do Localstack 
+Localstack é um emulador de serviços cloud (AWS) que roda em um único container. 
+Nesse caso, com o localstack já instalado, utilizei ele com o Docker, com os comandos:
+
+````
+pip install --user localstack
+````
+
+````
+TMPDIR=/private$TMPDIR localstack start --docker
+````
+
+<img src="docker-localstack.png" alt="docker-localstack" width="100%"/>
+
+## Deployment commands [DRAFT]
 
 ````
 mvn clean package
-
 
 # create an S3 bucket where the source code will be stored:
 
@@ -51,53 +89,38 @@ aws s3 mb s3://ndis2dc92jd2s
 
 # copy the source code located in the target folder:
 
-aws s3 cp target/ticketPubSub.zip s3://ndis2dc92jd2s
+aws s3 cp target/notification-app.zip s3://ndis2dc92jd2s
 
 
 # SAM will deploy the CloudFormation stack described in the template.yml file:
 
-sam deploy --s3-bucket ndis2dc92jd2s --stack-name ticket-stack --capabilities CAPABILITY_IAM
-
-
-# REMEMBER to DELETE the CloudFormation stack
-
-aws cloudformation delete-stack --stack-name ticket-stack
+sam deploy --s3-bucket ndis2dc92jd2s --stack-name notification-stack --capabilities CAPABILITY_IAM
 
 ````
 
-## Testing
+## Teste
 
-You can test the implementation using Postman and in the Body pasting the content of the ticket-example.json file:
+Work in Progress.
 
-````
-{
-  "data":{
-    "userId":"338dnwu2sjw",
-    "issue":"My system is running too slowly"
-  },
-  "medatada":{
-    "correlationId":"38is22ssd"
-  }
-}
-````
-
-Or using curl which will return the event id generated by EventBridge
-
-```
-curl -X POST https://COPYfromAPIGateway/dev/ticket -H "Content-Type: application/json" -d '{"data":{"userId":"338dnwu2sjw","issue":"My system is running too slowly"},"medatada":{"correlationId":"38is22ssd"}}' 
-```
 
 ## Cleanup
 
-Run the given command to delete the resources that were created. It might take some time for the CloudFormation stack to get deleted.
+Para deletar os recursos criados:
 ```
 aws cloudformation delete-stack --stack-name ticket-stack
 ```
 
-## Requirements
+## Requisitos
 
-* [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) if you do not already have one and log in. The IAM user that you use must have sufficient permissions to make necessary AWS service calls and manage AWS resources.
-* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) installed and configured
+* [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) 
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) 
 * [Git Installed](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [AWS Serverless Application Model](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) (AWS SAM) installed
+* [AWS Serverless Application Model](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) 
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+* [Localstack](https://github.com/localstack/localstack)
 
+
+## Mais informações
+
+* [Swager - NotificationAPI](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
+* [Status atividade concluída](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)
